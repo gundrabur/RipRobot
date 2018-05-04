@@ -1,4 +1,6 @@
 #!/bin/bash
-cd /home/pi/AutoRipper
-python autoRipper.py /home/pi/AutoRipper/tmp 100
-echo "AUDIO AutoRipper: System wird abgeschaltet!"
+echo "AUDIO RipRobot: Alle Temporäre Dateien werden vor dem Start gelöscht"
+sudo rm -r /home/pi/RipRobot/tmp/*
+cd /home/pi/RipRobot
+python ripRobot.py /home/pi/RipRobot/tmp 100
+echo "AUDIO RipRobot: System wird abgeschaltet!"
