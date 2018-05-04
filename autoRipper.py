@@ -10,9 +10,9 @@ import RPi.GPIO as GPIO
 import threading
 
 RIPITDIRTEMPLATE = "'\"/$artist/$album\"'"
-VERSION = "1.02de"
+VERSION = "1.03de"
 
-class AutoRipper():
+class RipRobot():
 
     def __init__(self,cdDrive,outputPath,timeout):
         self.cdDrive = cdDrive
@@ -49,7 +49,7 @@ class AutoRipper():
     def start(self):
         #open the cd drawer
         subprocess.call(["eject"])
-        print "AUDIO AutoRipper: Bitte CD einlegen ..."
+        print "AUDIO RipRobot: Bitte CD einlegen ..."
         #loop until a disk hasnt been inserted within the timeout
         lastTimeDiskFound = time.time()
         while (lastTimeDiskFound + self.timeout) > time.time():
@@ -58,7 +58,7 @@ class AutoRipper():
                 # Disk found
                 # is it an audio cd?
                 if self.cdDrive.get_track_audio(0) == True:
-                    print "AUDIO AutoRipper: Audio CD gefunden! Ripping startet"
+                    print "AUDIO RipRobot: Audio CD gefunden! Ripping startet"
                     self.redLED(0)
                     self.greenLED(1)
                     #run ripit
@@ -70,24 +70,24 @@ class AutoRipper():
                     # rip complete
                     # move to USB
                     # wait for a bit
-                    print "AUDIO AutoRipper: Ripping beendet!"
+                    print "AUDIO RipRobot: Ripping beendet!"
                     self.redLED(1)
                     self.greenLED(1)
                     # move files to USB using a shell script
-                    subprocess.call("/home/pi/AutoRipper/moveAudio.sh")
-                    print "AUDIO AutoRipper: CD wird ausgeworfen"
+                    subprocess.call("/home/pi/RipRobot/moveAudio.sh")
+                    print "AUDIO RipRobot: CD wird ausgeworfen"
                     # use eject command rather than pygame.cd.eject as I had problems with my drive
                     subprocess.call(["eject"])
                     self.redLED(0)
                     self.greenLED(1)
                     lastTimeDiskFound = time.time()
                 else:
-                    print "AUDIO AutoRipper: Die eingelegte CD ist keine Audio CD!"
+                    print "AUDIO RipRobot: Die eingelegte CD ist keine Audio CD!"
                     subprocess.call(["eject"])
                     self.redLED(1)
                     self.greenLED(0)
                 lastTimeDiskFound = time.time()
-                print "AUDIO AutoRipper: Warten auf neue CD ..."
+                print "AUDIO RipRobot: Warten auf neue CD ..."
             else:
                 # No disk - eject the tray
                 subprocess.call(["eject"])
@@ -97,8 +97,8 @@ class AutoRipper():
             time.sleep(5)
 
         # timed out, a disk wasnt inserted
-        subprocess.call("/home/pi/AutoRipper/cleanAudio.sh")
-        print "AUDIO AutoRipper: Wartezeit zu lang, System wird abgeschaltet!"
+        subprocess.call("/home/pi/RipRobot/cleanAudio.sh")
+        print "AUDIO RipRobot: Wartezeit zu lang, System wird abgeschaltet!"
         self.redLED(1)
         self.greenLED(0)
         # close the drawer
@@ -110,15 +110,16 @@ if __name__ == "__main__":
 
     print ""
     print "############################################"
-    print "##     Willkommen zum AUDIO AutoRipper    ##"
+    print "##     Willkommen zum AUDIO RipRobot      ##"
     print "##           Version: " + VERSION + "              ##"
-    print "## AUDIO AutoRipper basiert auf Code von: ##"
+    print "## AUDIO RipRobot basiert auf Code von:   ##"
     print "##           StuffAboutCode.com           ##"
+    print "## Freie Software Creativ Commmon License ##"
     print "############################################"
     print ""
 
     #Command line options
-    parser = argparse.ArgumentParser(description="Auto CD Ripper")
+    parser = argparse.ArgumentParser(description="AUDIO RipRobot")
     parser.add_argument("outputPath", help="The location to rip the CD to")
     parser.add_argument("timeout", help="The number of seconds to wait for the next CD")
     args = parser.parse_args()
@@ -128,17 +129,17 @@ if __name__ == "__main__":
 
     # make sure we can find a drive
     if pygame.cdrom.get_count() == 0:
-        print "AUDIO AutoRipper: Kein CD-Laufwerk gefunden!"
+        print "AUDIO RipRobot: Kein CD-Laufwerk gefunden!"
     elif pygame.cdrom.get_count() > 1:
-        print "AUDIO AutoRipper: Mehr als ein CD-Laufwerk gefunden! Das wird nicht unterstützt, bitte nur ein CD-Laufwerk anschließen!"
+        print "AUDIO RipRobot: Mehr als ein CD-Laufwerk gefunden! Das wird nicht unterstützt, bitte nur ein CD-Laufwerk anschließen!"
     elif pygame.cdrom.get_count() == 1:
-        print "AUDIO AutoRipper: CD-Laufwerk gefunden! Es geht los!"
+        print "AUDIO RipRobot: CD-Laufwerk gefunden! Es geht los!"
         print int(args.timeout)
-        autoRipper = AutoRipper(pygame.cdrom.CD(0),args.outputPath,int(args.timeout))
-        autoRipper.initLED()
-        autoRipper.start()
+        RipRobot = RipRobot(pygame.cdrom.CD(0),args.outputPath,int(args.timeout))
+        RipRobot.initLED()
+        RipRobot.start()
 
     #clean up
-    autoRipper.allLED(0)
+    RipRobot.allLED(0)
     GPIO.cleanup()
     pygame.cdrom.quit()
