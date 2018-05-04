@@ -1,6 +1,6 @@
 #!/bin/bash
-echo "AUDIO AutoRipper: Temporäre Dateien werden gelöscht"
-sudo rm -r /home/pi/AutoRipper/tmp/*
+echo "AUDIO RipRobot: Temporäre Dateien werden gelöscht"
+sudo rm -r /home/pi/RipRobot/tmp/*
 sudo umount /dev/sda1
 df
-#sudo shutdown
+sudo shutdown
