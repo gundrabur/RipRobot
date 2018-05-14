@@ -10,7 +10,7 @@ import RPi.GPIO as GPIO
 import threading
 
 RIPITDIRTEMPLATE = "'\"/$artist/$album\"'"
-VERSION = "1.03de"
+VERSION = "1.04de"
 
 class RipRobot():
 
@@ -19,36 +19,58 @@ class RipRobot():
         self.outputPath = outputPath
         self.timeout = timeout
         self.cdDrive.init()
-    
-    def initLED(self):
+        
+        # GPIO initialisieren
         # Warnungen ausschalten
         GPIO.setwarnings(False)
+        
         # RPi.GPIO Layout verwenden (wie Pin-Nummern)
         GPIO.setmode(GPIO.BOARD)
-        # Pin 13 (GPIO 27) auf Output setzen
-        GPIO.setup(13, GPIO.OUT)
-        # Pin 15 (GPIO 22) auf Output setzen
-        GPIO.setup(15, GPIO.OUT)
+        
+        # Pin 12 (GPIO 18) auf PWM setzen, grüne LED, kann blinken per PWM!
+        GPIO.setup(12, GPIO.OUT)
 
-        # LEDs einschalten
-        self.allLED(1)
-        time.sleep(1)
-        # LEDs ausschalten
-        self.allLED(0)
-    
+        # Pin 13 (GPIO 33) auf PWM setzen, rote LED, kann blinken per PWM!
+        GPIO.setup(33, GPIO.OUT)
+
+        # das ist die Variable, über die die blinkende LED gesteuert wird
+        self.LED_green = GPIO.PWM(12, 4)
+
+        # das ist die Variable, über die die blinkende LED gesteuert wird
+        self.LED_red = GPIO.PWM(33, 4)
+
     def allLED(self,state):
-        self.redLED(state)
-        self.greenLED(state)
+        self.LEDGreenBlink(state,2)
+        self.LEDRedBlink(state,2)
 
-    def redLED(self,state):
-        GPIO.output(13,state)
+    def LEDGreenBlink(self,state,speed):
+        if state == True:
+            self.LED_green.start(50) # 50% An/Aus-Verhältnis
+            self.LED_green.ChangeFrequency(speed)
+        else:
+            self.LED_green.stop()
 
-    def greenLED(self,state):
-        GPIO.output(15,state)
+    def LEDRedBlink(self,state,speed):
+        if state == True:
+            self.LED_red.start(50) # 50% An/Aus-Verhältnis
+            self.LED_red.ChangeFrequency(speed)
+        else:
+            self.LED_red.stop()
 
     def start(self):
+        
+        # LEDs einschalten
+        self.allLED(True)
+        # zwei Sekunden warten
+        time.sleep(2)
+        # LEDs ausschalten
+        self.allLED(False)
+       
         #open the cd drawer
+        self.LEDGreenBlink(True,2000) #####>#####
         subprocess.call(["eject"])
+        print "AUDIO RipRobot: 30 Sekunden warten, bis die Echtzeituhr gestellt wurde"
+        time.sleep(30)
         print "AUDIO RipRobot: Bitte CD einlegen ..."
         #loop until a disk hasnt been inserted within the timeout
         lastTimeDiskFound = time.time()
@@ -59,48 +81,66 @@ class RipRobot():
                 # is it an audio cd?
                 if self.cdDrive.get_track_audio(0) == True:
                     print "AUDIO RipRobot: Audio CD gefunden! Ripping startet"
-                    self.redLED(0)
-                    self.greenLED(1)
                     #run ripit
                     # getting subprocess to run ripit was difficult
-                    #  due to the quotes in the --dirtemplate option
-                    #   this works though!
+                    # due to the quotes in the --dirtemplate option
+                    # this works though!
+                    
+                    # langsam blinken = Rippen läuft!
+                    # grün blinkt langsam, aus
+                    self.LEDGreenBlink(True,2) #####>#####
+                    # rot aus
+                    self.LEDRedBlink(False,1) #####>#####
+
                     ripit = subprocess.Popen("ripit --transfer http --coder 2 --outputdir " + self.outputPath + " --dirtemplate=" + RIPITDIRTEMPLATE + " --nointeraction", shell=True)
                     ripit.communicate()
                     # rip complete
                     # move to USB
                     # wait for a bit
                     print "AUDIO RipRobot: Ripping beendet!"
-                    self.redLED(1)
-                    self.greenLED(1)
+                    
+                    # ganz schnelles Blinken = Daten werden auf USB-Stick verschoben
+                    self.LEDGreenBlink(True,8)  #####>#####
+                    
                     # move files to USB using a shell script
                     subprocess.call("/home/pi/RipRobot/moveAudio.sh")
                     print "AUDIO RipRobot: CD wird ausgeworfen"
                     # use eject command rather than pygame.cd.eject as I had problems with my drive
                     subprocess.call(["eject"])
-                    self.redLED(0)
-                    self.greenLED(1)
+                    
+                    # Grün an
+                    self.LEDGreenBlink(True,2000)  #####>#####
+                    # rotes Blinken aus!
+                    self.LEDRedBlink(False,1)
+                    
                     lastTimeDiskFound = time.time()
                 else:
                     print "AUDIO RipRobot: Die eingelegte CD ist keine Audio CD!"
                     subprocess.call(["eject"])
-                    self.redLED(1)
-                    self.greenLED(0)
+ 
+                    # Grün an, damit der Benutzer weiß: "Audio-CD einlegen"
+                    self.LEDGreenBlink(True,2000)  #####>#####
+                    # schnell blinken = Fehler
+                    self.LEDRedBlink(True,4) #####>#####
+                
                 lastTimeDiskFound = time.time()
                 print "AUDIO RipRobot: Warten auf neue CD ..."
             else:
                 # No disk - eject the tray
                 subprocess.call(["eject"])
-                self.greenLED(1)
-                self.redLED(0)
-            # wait for a bit, before checking if there is a disk
-            time.sleep(5)
+                # wait for a bit, before checking if there is a disk
+            print "AUDIO RipRobot: Warten auf neue CD ..."
+            time.sleep(10)
 
         # timed out, a disk wasnt inserted
         subprocess.call("/home/pi/RipRobot/cleanAudio.sh")
         print "AUDIO RipRobot: Wartezeit zu lang, System wird abgeschaltet!"
-        self.redLED(1)
-        self.greenLED(0)
+        
+        # grün aus
+        self.LEDGreenBlink(False,2)  #####>#####
+        # schnell blinken = Fehler
+        self.LEDRedBlink(True,4) #####>#####
+        
         # close the drawer
         subprocess.call(["eject", "-t"])
         #finished - cleanup
@@ -134,12 +174,10 @@ if __name__ == "__main__":
         print "AUDIO RipRobot: Mehr als ein CD-Laufwerk gefunden! Das wird nicht unterstützt, bitte nur ein CD-Laufwerk anschließen!"
     elif pygame.cdrom.get_count() == 1:
         print "AUDIO RipRobot: CD-Laufwerk gefunden! Es geht los!"
-        print int(args.timeout)
+        print "AUDIO RipRobot: Timeout steht auf " + args.timeout + " Sekunden"
         RipRobot = RipRobot(pygame.cdrom.CD(0),args.outputPath,int(args.timeout))
-        RipRobot.initLED()
         RipRobot.start()
 
     #clean up
-    RipRobot.allLED(0)
     GPIO.cleanup()
     pygame.cdrom.quit()
