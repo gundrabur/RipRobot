@@ -66,84 +66,74 @@ class RipRobot():
         # LEDs ausschalten
         self.allLED(False)
        
-        #open the cd drawer
-        self.LEDGreenBlink(True,2000) #####>#####
+        # CD Schublade öffnen
+        self.LEDGreenBlink(True,2000) # grüne LED an
         subprocess.call(["eject"])
         print "AUDIO RipRobot: 30 Sekunden warten, bis die Echtzeituhr gestellt wurde"
         time.sleep(30)
         print "AUDIO RipRobot: Bitte CD einlegen ..."
-        #loop until a disk hasnt been inserted within the timeout
+        # Diese Schleife läuft so lange, bis nach Ablauf des Timeouts keine CD eingelegt wurde
         lastTimeDiskFound = time.time()
         while (lastTimeDiskFound + self.timeout) > time.time():
-            #is there a disk in the drive?
+            # Ist eine CD im Laufwerk?
             if self.cdDrive.get_empty() == False:
-                # Disk found
-                # is it an audio cd?
+                # Ja, CD gefunden!
+                # Ist es auch eine Audio-CD?
                 if self.cdDrive.get_track_audio(0) == True:
                     print "AUDIO RipRobot: Audio CD gefunden! Ripping startet"
-                    #run ripit
-                    # getting subprocess to run ripit was difficult
-                    # due to the quotes in the --dirtemplate option
-                    # this works though!
-                    
-                    # langsam blinken = Rippen läuft!
-                    # grün blinkt langsam, aus
-                    self.LEDGreenBlink(True,2) #####>#####
+                    # ripit starten
+                    # LEDs bedeuten: langsam blinken = Rippen läuft!
+                    # grün blinkt langsam, rot aus
+                    self.LEDGreenBlink(True,2)
                     # rot aus
-                    self.LEDRedBlink(False,1) #####>#####
-
+                    self.LEDRedBlink(False,1)
+                    # Hier startet der eigentlich Rip-Prozess. Dazu wird das Tool "RipIt" gestartet
                     ripit = subprocess.Popen("ripit --transfer http --coder 2 --outputdir " + self.outputPath + " --dirtemplate=" + RIPITDIRTEMPLATE + " --nointeraction", shell=True)
                     ripit.communicate()
-                    # rip complete
-                    # move to USB
-                    # wait for a bit
+                    # RipIt ist fertig
+                    # Jetzt die Daten auf den USB-Stick kopieren
                     print "AUDIO RipRobot: Ripping beendet!"
-                    
                     # ganz schnelles Blinken = Daten werden auf USB-Stick verschoben
-                    self.LEDGreenBlink(True,8)  #####>#####
-                    
-                    # move files to USB using a shell script
+                    self.LEDGreenBlink(True,8)
+                    # Shell-Script starten
                     subprocess.call("/home/pi/RipRobot/moveAudio.sh")
                     print "AUDIO RipRobot: CD wird ausgeworfen"
-                    # use eject command rather than pygame.cd.eject as I had problems with my drive
+                    # CD auswerfen
                     subprocess.call(["eject"])
-                    
-                    # Grün an
-                    self.LEDGreenBlink(True,2000)  #####>#####
+                    # Grüne LED an
+                    self.LEDGreenBlink(True,2000)
                     # rotes Blinken aus!
                     self.LEDRedBlink(False,1)
-                    
                     lastTimeDiskFound = time.time()
                 else:
+                    # das ging schief, die CD hat einen Fehler oder ist keine Audio-CD
                     print "AUDIO RipRobot: Die eingelegte CD ist keine Audio CD!"
                     subprocess.call(["eject"])
- 
                     # Grün an, damit der Benutzer weiß: "Audio-CD einlegen"
-                    self.LEDGreenBlink(True,2000)  #####>#####
-                    # schnell blinken = Fehler
-                    self.LEDRedBlink(True,4) #####>#####
-                
+                    self.LEDGreenBlink(True,2000)
+                    # Rot blinkt = Fehler
+                    self.LEDRedBlink(True,4)
                 lastTimeDiskFound = time.time()
                 print "AUDIO RipRobot: Warten auf neue CD ..."
             else:
-                # No disk - eject the tray
+                # Keine CD im Laufwerk, also auswerfen
                 subprocess.call(["eject"])
-                # wait for a bit, before checking if there is a disk
+            # 10 Sekunden warten, bis eine neue Abfrage nach einer CD erfolgt
             print "AUDIO RipRobot: Warten auf neue CD ..."
             time.sleep(10)
 
-        # timed out, a disk wasnt inserted
+        # Timeout abgelaufen, AUDIO RipRobot herunterfahren
+        # hier wird ein Shellscript aufgerufen, dass das temporäre Verzeichnis leert
+        # und den Raspi abschaltet
         subprocess.call("/home/pi/RipRobot/cleanAudio.sh")
         print "AUDIO RipRobot: Wartezeit zu lang, System wird abgeschaltet!"
-        
         # grün aus
-        self.LEDGreenBlink(False,2)  #####>#####
+        self.LEDGreenBlink(False,2)
         # schnell blinken = Fehler
-        self.LEDRedBlink(True,4) #####>#####
-        
-        # close the drawer
+        self.LEDRedBlink(True,4)
+        # CD-Laufwerk schließen
         subprocess.call(["eject", "-t"])
-        #finished - cleanup
+        # Ende, runterfahren!
         self.cdDrive.quit()
 
 if __name__ == "__main__":
@@ -158,16 +148,16 @@ if __name__ == "__main__":
     print "############################################"
     print ""
 
-    #Command line options
+    # Kommandozeile auslesen
     parser = argparse.ArgumentParser(description="AUDIO RipRobot")
     parser.add_argument("outputPath", help="The location to rip the CD to")
     parser.add_argument("timeout", help="The number of seconds to wait for the next CD")
     args = parser.parse_args()
 
-    #Initialize the CDROM device
+    # CD-Laufwerk initialisieren
     pygame.cdrom.init()
 
-    # make sure we can find a drive
+    # Gibt es überhaupt ein CD-Laufwerk?
     if pygame.cdrom.get_count() == 0:
         print "AUDIO RipRobot: Kein CD-Laufwerk gefunden!"
     elif pygame.cdrom.get_count() > 1:
